@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивная карта</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+</head>
+<body>
+<div id="timer-container">
+    <div id="timer-bar"></div>
+</div>
+
+<div id="map-wrapper">
+    <div id="map">
+        <div id="score-overlay">
+            <div id="correct-score"><span class="score-icon correct-icon"></span> 0</div>
+            <div id="incorrect-score"><span class="score-icon incorrect-icon"></span> 0</div>
+        </div>
+        <div id="input-container">
+            <input type="text" id="answer" placeholder="Введите название...">
+            <button id="submit">Проверить</button>
+        </div>
+    </div>
+</div>
+
+
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="mapScript.js"></script> <!-- Подключение JavaScript -->
+</body>
+</html>
