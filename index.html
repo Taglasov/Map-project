@@ -9,19 +9,28 @@
 
 </head>
 <body>
-<div id="timer-container">
-    <div id="timer-bar"></div>
-</div>
 
 <div id="map-wrapper">
     <div id="map">
-        <div id="score-overlay">
-            <div id="correct-score"><span class="score-icon correct-icon"></span> 0</div>
-            <div id="incorrect-score"><span class="score-icon incorrect-icon"></span> 0</div>
+        <div id="score-container">
+            <div class="score correct">
+                <span class="score-icon">✔️</span>
+                <span id="correct-score">0</span>
+            </div>
+            <div class="score incorrect">
+                <span class="score-icon">❌</span>
+                <span id="incorrect-score">0</span>
+            </div>
         </div>
-        <div id="input-container">
-            <input type="text" id="answer" placeholder="Введите название...">
-            <button id="submit">Проверить</button>
+        <div id="answer-container">
+            <!-- Кнопки с вариантами ответов -->
+            <button class="answer-button" onclick="checkAnswer(this)">Вариант 1</button>
+            <button class="answer-button" onclick="checkAnswer(this)">Вариант 2</button>
+            <button class="answer-button" onclick="checkAnswer(this)">Вариант 3</button>
+            <button class="answer-button" onclick="checkAnswer(this)">Вариант 4</button>
+        </div>
+        <div id="timer-container">
+            <div id="timer-bar"></div>
         </div>
     </div>
 </div>

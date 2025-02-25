@@ -31,7 +31,7 @@ header p {
     padding: 10px;
     max-width: 90%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 10px;
+    border-radius: 15px;
     background: white;
 }
 
@@ -47,23 +47,6 @@ footer {
     width: 100%;
 }
 
-#timer-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 12px;
-    background-color: #ddd; /* Светло-серый фон для контейнера */
-    z-index: 1000; /* Поверх всех элементов */
-}
-
-/* Полоска таймера */
-#timer-bar {
-    width: 100%;
-    height: 100%;
-    background-color: #4caf50; /* Зелёный цвет полоски */
-    transition: width linear, background-color 1s;
-}
 
 /* Контейнер для счётчиков поверх карты */
 #score-overlay {
@@ -155,70 +138,132 @@ footer {
     height: 100%;
     z-index: 903; /* Слой для эффекта */
 }
-
-/* Контейнер для ввода и кнопки внизу */
-#input-container {
+/* Таймер */
+#timer-container {
     position: absolute;
-    bottom: 0px;
+    bottom: 0; /* Располагаем у самого края карты */
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.8);
-    padding: 10px;
-    border-radius: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 80%;
-    max-width: 400px;
-    z-index: 1000; /* Слой поверх карты */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    width: 80%; /* Ширина таймера */
+    height: 10px; /* Высота таймера */
+    background-color: #ddd; /* Фон таймера */
+    border-radius: 5px; /* Скруглённые углы */
+    overflow: hidden; /* Скрываем излишки полоски */
+    z-index: 1000;
 }
 
-/* Стили для поля ввода и кнопки */
-#answer {
-    width: 70%;
-    padding: 10px;
-    font-size: 16px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
+/* Полоска таймера */
+#timer-bar {
+    width: 100%; /* Заполнен полностью */
+    height: 100%; /* Соответствует высоте контейнера */
+    background-color: #4caf50; /* Зелёный цвет полоски */
+    transition: width linear, background-color 0.3s; /* Плавный переход для ширины */
 }
 
-#submit {
-    padding: 10px 15px;
+
+/* Контейнер для вариантов ответов */
+#answer-container {
+    position: absolute;
+    bottom: 10px; /* Привязываем к нижнему краю карты */
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid; /* Используем сетку для равномерного расположения */
+    grid-template-columns: repeat(2, 1fr); /* Два столбца */
+    gap: 10px 20px; /* Отступы между кнопками */
+    z-index: 1000;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8); /* Полупрозрачный фон для выделения */
+    border-top: 2px solid #ddd; /* Линия сверху */
+    border-left: 2px solid #ddd; /* Линия сверху */
+    border-right: 2px solid #ddd; /* Линия сверху */
+    border-radius: 10px;
+}
+
+/* Стили для кнопок */
+.answer-button {
+    width: 100%; /* Кнопки занимают всю ширину ячейки */
+    max-width: 200px; /* Ограничиваем ширину кнопок */
+    height: 50px; /* Фиксированная высота */
+    padding: 10px;
     font-size: 16px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
+    font-weight: bold;
+    border: 2px solid #ddd; /* Лёгкая граница */
+    border-radius: 10px; /* Скруглённые углы */
     cursor: pointer;
+    background-color: #f9f9f9; /* Светло-серый фон */
+    color: #333; /* Тёмный текст */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Тень для объёма */
+    transition: all 0.3s ease; /* Плавный переход для всех изменений */
 }
 
-#submit:hover {
-    background-color: #45a049;
+.answer-button:hover {
+    background-color: #e0e0e0; /* Тёмно-серый фон при наведении */
+    transform: scale(1.05); /* Увеличение кнопки */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2); /* Более сильная тень */
+}
+
+.answer-button:active {
+    transform: scale(0.95); /* Уменьшение кнопки при клике */
+    background-color: #d6d6d6; /* Ещё более тёмный фон */
+}
+
+.answer-button.correct {
+    background-color: #4CAF50; /* Зелёный цвет при правильном ответе */
+    color: white;
+    border-color: #4CAF50; /* Соответствующий цвет границы */
+    box-shadow: 0 4px 6px rgba(0, 255, 0, 0.4);
+}
+
+.answer-button.incorrect {
+    background-color: #F44336; /* Красный цвет при неправильном ответе */
+    color: white;
+    border-color: #F44336; /* Соответствующий цвет границы */
+    box-shadow: 0 4px 6px rgba(255, 0, 0, 0.4);
 }
 
 
+/* Общий контейнер для счётчиков */
 #score-container {
+    position: absolute;
+    top: 20px; /* Расположение сверху */
+    left: 20px;
+    /*transform: translateX(-50%);*/
     display: flex;
-    justify-content: center;
-    margin-top: 10px;
+    gap: 10px; /* Расстояние между блоками */
+    z-index: 1000;
+    background-color: rgba(255, 255, 255, 0.8); /* Полупрозрачный фон */
+    padding: 10px 10px;
+    border-radius: 10px; /* Скруглённые углы */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Лёгкая тень */
+    font-family: Arial, sans-serif;
+}
+
+/* Стили для каждого счётчика */
+.score {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Расстояние между иконкой и числом */
     font-size: 18px;
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 5px;
 }
-#correct-score, #incorrect-score {
-    margin: 0 20px;
+
+/* Счётчик правильных ответов */
+.score.correct {
+    background-color: #e8f5e9; /* Светло-зелёный фон */
+    color: #388e3c; /* Зелёный текст */
+    border: 2px solid #388e3c; /* Граница зелёного цвета */
 }
+
+/* Счётчик неправильных ответов */
+.score.incorrect {
+    background-color: #ffebee; /* Светло-красный фон */
+    color: #d32f2f; /* Красный текст */
+    border: 2px solid #d32f2f; /* Граница красного цвета */
+}
+
+/* Стили для иконок */
 .score-icon {
-    display: inline-block;
-    width: 50px;
-    height: 20px;
-    margin-left: 20px;
-    vertical-align: middle;
-}
-.correct-icon {
-    background: url('mark.png') no-repeat center center;
-    background-size: contain;
-}
-.incorrect-icon {
-    background: url('cross.png') no-repeat center center;
-    background-size: contain;
+    font-size: 20px; /* Размер иконки */
 }

@@ -11,7 +11,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let geoJsonLayer, randomFeature;
-let correctScore = 0, incorrectScore = 0;
+
+
 
 // Загрузка GeoJSON
 fetch('irk.geojson') // Укажите путь к вашему GeoJSON-файлу
@@ -26,7 +27,7 @@ fetch('irk.geojson') // Укажите путь к вашему GeoJSON-файл
                     fillOpacity: 0.5
                 };
             },
-            onEachFeature: function(feature, layer) {
+            /*onEachFeature: function(feature, layer) {
                 layer.on({
                      mouseover: function (e) {
                          var layer = e.target;
@@ -39,17 +40,23 @@ fetch('irk.geojson') // Укажите путь к вашему GeoJSON-файл
                          layer.closePopup();
                      }
                 });
-            }
+            }*/
         }).addTo(map);
 
         // Получаем объединённые границы всех объектов GeoJSON
         const allBounds = geoJsonLayer.getBounds();
 
         // Увеличиваем границы для добавления отступа
-        const expandedBounds = allBounds.pad(0.45); // Увеличение на 10%
+        //const bounds = allBounds.pad(0.7); // Увеличение на 50%
 
         // Устанавливаем новые границы карты
-        map.setMaxBounds(expandedBounds);
+        const bounds = [
+            [40, 70], // Юго-западная точка
+            [70, 150] // Северо-восточная точка
+        ];
+
+        map.setMaxBounds(bounds);
+        //map.fitBounds(bounds);
 
 
         map.setMinZoom(5); // Минимальный зум
@@ -60,13 +67,27 @@ fetch('irk.geojson') // Укажите путь к вашему GeoJSON-файл
         chooseRandomFeature();
     });
 
+function reset(){
+    if (!randomFeature)
+        return;
+
+    stopTimer();
+    document.querySelectorAll('.answer-button').forEach(btn => {
+        btn.classList.remove('correct', 'incorrect');
+    });
+    geoJsonLayer.resetStyle(randomFeature);
+}
+
 // Функция выбора случайного элемента
 function chooseRandomFeature() {
     if (!geoJsonLayer) return;
-
+    reset();
     const features = geoJsonLayer.getLayers();
-    const randomIndex = Math.floor(Math.random() * features.length);
-    randomFeature = features[randomIndex];
+    randomFeature = features[Math.floor(Math.random() * features.length)];
+    const allOptions = features.map(feature => feature.feature.properties.district);
+    const correctDistrict = randomFeature.feature.properties.district;
+
+
 
     // Поднимаем индекс региона
     randomFeature.bringToFront();
@@ -89,43 +110,86 @@ function chooseRandomFeature() {
         duration: 0.9 // Длительность анимации
     });
 
-    // Запускаем таймер для нового вопроса
-    startTimer();
+    // Генерация кнопок с ответами
+    generateAnswers(correctDistrict, allOptions);
 }
 
+let correctAnswer = ''; // Хранит правильный ответ
+
+function generateAnswers(correct, allOptions) {
+    // Запускаем таймер для нового вопроса
+    startTimer();
+
+    // Убираем правильный ответ из общего списка, чтобы не дублировать
+    const incorrectOptions = allOptions.filter(option => option !== correct);
+    // Перемешиваем неправильные варианты и выбираем три из них
+    const shuffledIncorrectOptions = incorrectOptions.sort(() => Math.random() - 0.5).slice(0, 3);
+    // Включаем правильный ответ в список вариантов
+    const answerOptions = [...shuffledIncorrectOptions, correct].sort(() => Math.random() - 0.5);
+
+    // Обновляем текст кнопок и отмечаем правильный ответ
+    const buttons = document.querySelectorAll('.answer-button');
+
+    // Распределяем варианты по кнопкам
+    answerOptions.forEach((option, index) => {
+        buttons[index].innerText = option;
+        if (option === correct) {
+            buttons[index].dataset.correct = 'true'; // Помечаем правильный вариант
+        } else {
+            buttons[index].dataset.correct = 'false'; // Остальные неправильные
+        }
+    });
+
+    // Устанавливаем правильный ответ
+    correctAnswer = correct;
+}
+
+
+
 // Проверка ответа пользователя
-function checkAnswer() {
-    const userAnswer = document.getElementById('answer').value.trim().toLowerCase();
-    const correctAnswer = randomFeature.feature.properties.district;
+function checkAnswer(button) {
+    stopTimer();
+    const isCorrect = button.dataset.correct === 'true';
 
-    const feedback = document.getElementById('feedback');
-
-    if (userAnswer === correctAnswer.toLowerCase()) {
-        correctScore++;
+    if (isCorrect) {
+        button.classList.add('correct');
         flashBackground(true);
-        updateScore();
     } else {
-        incorrectScore++;
+        button.classList.add('incorrect');
         flashBackground(false);
-        updateScore();
     }
+    // Обновляем счётчики
+    updateScore(isCorrect);
     //убираем подстветку
     geoJsonLayer.resetStyle(randomFeature);
 
-    // Очищаем поле ввода и выбираем новый элемент
-    document.getElementById('answer').value = '';
-    chooseRandomFeature();
+    // Очищаем состояние кнопок и выбираем новый вопрос
+    setTimeout(() => {
+        document.querySelectorAll('.answer-button').forEach(btn => {
+            btn.classList.remove('correct', 'incorrect');
+        });
+        chooseRandomFeature();
+    }, 500);
+
 }
 
 // Функция обновления счётчиков
-function updateScore() {
-    document.getElementById('correct-score').innerHTML = `<span class="score-icon correct-icon"></span> ${correctScore}`;
-    document.getElementById('incorrect-score').innerHTML = `<span class="score-icon incorrect-icon"></span> ${incorrectScore}`;
+let correctScore = 0;
+let incorrectScore = 0;
+
+function updateScore(isCorrect) {
+    if (isCorrect) {
+        correctScore++;
+        document.getElementById('correct-score').innerText = correctScore;
+    } else {
+        incorrectScore++;
+        document.getElementById('incorrect-score').innerText = incorrectScore;
+    }
 }
 
 
-let timerDuration = 15; // Время на ответ в секундах
-let warningThreshold = 5; // Сколько секунд до конца таймера, чтобы сменить цвет
+let timerDuration = 8; // Время на ответ в секундах
+let warningThreshold = 2; // Сколько секунд до конца таймера, чтобы сменить цвет
 let timerInterval; // Хранит интервал таймера
 
 function startTimer() {
@@ -151,17 +215,17 @@ function startTimer() {
 
         // Если время истекло, сбрасываем таймер
         if (currentWidth <= 0) {
-            clearInterval(timerInterval);
+            stopTimer();
             //alert('Время вышло!');
-            incorrectScore++;
             flashBackground(false)
-            updateScore();
+            updateScore(false);
             //убираем подстветку
             geoJsonLayer.resetStyle(randomFeature);
-
-            // Очищаем поле ввода и выбираем новый элемент
-            document.getElementById('answer').value = '';
-            chooseRandomFeature(); // Переход к следующему вопросу
+            // Очищаем состояние кнопок и выбираем новый вопрос
+            document.querySelectorAll('.answer-button').forEach(btn => {
+                 btn.classList.remove('correct', 'incorrect');
+            });
+            chooseRandomFeature();
         }
     }, updateInterval); // Обновление каждые 100 миллисекунд
 }
@@ -170,18 +234,6 @@ function stopTimer() {
     clearInterval(timerInterval); // Останавливаем таймер
 }
 
-document.getElementById('submit').addEventListener('click', () => {
-    stopTimer(); // Останавливаем таймер при ответе
-    checkAnswer(); // Проверяем ответ
-});
-
-// Добавляем проверку ответа по нажатию Enter
-document.getElementById('answer').addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') {
-        stopTimer(); // Останавливаем таймер при нажатии Enter
-        checkAnswer(); // Проверяем ответ
-    }
-});
 
 function flashBackground(isCorrect) {
     const mapElement = document.getElementById('map');
