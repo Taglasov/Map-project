@@ -1,55 +1,51 @@
 // Инициализация карты
 const map = L.map('map', {
-    zoomControl: false, // Отключение кнопок управления зумом
+    zoomControl: false,
     maxZoom: 10,
-    attributionControl: false // Отключение ссылки на Leaflet
+    attributionControl: false
 }).setView([58.2, 107.0], 5);
 
 // Добавление слоя с картой
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 
-let geoJsonLayer, randomFeature;
-
-
-
+// Объявление переменных
+let vectorGridLayer;
+let randomFeature;
+let geoJsonData;
 // Загрузка GeoJSON
-fetch('irk.geojson') // Укажите путь к вашему GeoJSON-файлу
+fetch('irk.json') // Укажите путь к вашему GeoJSON-файлу
     .then(response => response.json())
     .then(data => {
-        geoJsonLayer = L.geoJSON(data, {
-            style: function(feature) {
-                return {
-                    fillColor: 'blue',
-                    weight: 1,
+        // Генерация уникальных идентификаторов для каждого объекта
+        geoJsonData = data;
+        geoJsonData.features.forEach((feature, index) => {
+            feature.properties.id = index;
+        });
+        // Подключаем GeoJSON через VectorGrid
+        vectorGridLayer = L.vectorGrid.slicer(geoJsonData, {
+            rendererFactory: L.canvas.tile, // Используем Canvas для рендеринга
+            vectorTileLayerStyles : {
+                sliced: {
                     color: 'white',
-                    fillOpacity: 0.5
-                };
+                    weight: 1,
+                    fill: true,
+                    fillColor: 'blue',
+                    fillOpacity: 0.5,
+                },
             },
-            /*onEachFeature: function(feature, layer) {
-                layer.on({
-                     mouseover: function (e) {
-                         var layer = e.target;
-                         // Отображаем название при наведении
-                         layer.bindPopup(layer.feature.properties.district).openPopup();
-                     },
-                     mouseout: function (e) {
-                         var layer = e.target;
-                         // Закрываем popup при убирании курсора
-                         layer.closePopup();
-                     }
-                });
-            }*/
+            getFeatureId: function(f) {
+                return f.properties.id;
+            },
+            interactive: true, // Включаем интерактивность
+            //maxZoom: 14 // Максимальный уровень зума
         }).addTo(map);
 
-        // Получаем объединённые границы всех объектов GeoJSON
-        const allBounds = geoJsonLayer.getBounds();
+        vectorGridLayer.on('tileunload', () => {
+            highlightFeature();
+        });
 
-        // Увеличиваем границы для добавления отступа
-        //const bounds = allBounds.pad(0.7); // Увеличение на 50%
-
-        // Устанавливаем новые границы карты
         const bounds = [
             [40, 70], // Юго-западная точка
             [70, 150] // Северо-восточная точка
@@ -57,96 +53,92 @@ fetch('irk.geojson') // Укажите путь к вашему GeoJSON-файл
 
         map.setMaxBounds(bounds);
         //map.fitBounds(bounds);
-
-
         map.setMinZoom(5); // Минимальный зум
         map.setMaxZoom(7); // Максимальный зум
 
-
-        // Запускаем цикл выбора случайного элемента
         chooseRandomFeature();
     });
-
-function reset(){
-    if (!randomFeature)
-        return;
-
-    stopTimer();
-    document.querySelectorAll('.answer-button').forEach(btn => {
-        btn.classList.remove('correct', 'incorrect');
-    });
-    geoJsonLayer.resetStyle(randomFeature);
-}
-
 // Функция выбора случайного элемента
 function chooseRandomFeature() {
-    if (!geoJsonLayer) return;
+    if (!vectorGridLayer) return;
     reset();
-    const features = geoJsonLayer.getLayers();
-    randomFeature = features[Math.floor(Math.random() * features.length)];
-    const allOptions = features.map(feature => feature.feature.properties.district);
-    const correctDistrict = randomFeature.feature.properties.district;
+    // Список всех доступных объектов
+    const allFeatures = geoJsonData.features;
 
+    const randomIndex = Math.floor(Math.random() * allFeatures.length);
+    randomFeature = allFeatures[randomIndex];
 
+    const allOptions = allFeatures.map(f => f.properties.district);
+    const correctDistrict = randomFeature.properties.district;
 
-    // Поднимаем индекс региона
-    randomFeature.bringToFront();
+    highlightFeature();
 
-    // Подсветка выбранного элемента
-    randomFeature.setStyle({
-        weight: 2,
-        color: 'red',
-        fillColor: 'yellow',
-        dashArray: '',
-        fillOpacity: 0.7
-    });
-
-    // Получаем границы региона
-    let bounds = randomFeature.getBounds();
-
-    // Плавное приближение карты к скорректированным границам региона
+    // Плавное приближение карты к границам выбранного элемента
+    const bounds = L.latLngBounds(randomFeature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]));
     map.flyToBounds(bounds, {
-        maxZoom: 6, // Максимальный зум
-        duration: 0.9 // Длительность анимации
+        maxZoom: 6,
+        duration: 0.9
     });
 
     // Генерация кнопок с ответами
     generateAnswers(correctDistrict, allOptions);
 }
 
-let correctAnswer = ''; // Хранит правильный ответ
-
-function generateAnswers(correct, allOptions) {
-    // Запускаем таймер для нового вопроса
-    startTimer();
-
-    // Убираем правильный ответ из общего списка, чтобы не дублировать
-    const incorrectOptions = allOptions.filter(option => option !== correct);
-    // Перемешиваем неправильные варианты и выбираем три из них
-    const shuffledIncorrectOptions = incorrectOptions.sort(() => Math.random() - 0.5).slice(0, 3);
-    // Включаем правильный ответ в список вариантов
-    const answerOptions = [...shuffledIncorrectOptions, correct].sort(() => Math.random() - 0.5);
-
-    // Обновляем текст кнопок и отмечаем правильный ответ
-    const buttons = document.querySelectorAll('.answer-button');
-
-    // Распределяем варианты по кнопкам
-    answerOptions.forEach((option, index) => {
-        buttons[index].innerText = option;
-        if (option === correct) {
-            buttons[index].dataset.correct = 'true'; // Помечаем правильный вариант
-        } else {
-            buttons[index].dataset.correct = 'false'; // Остальные неправильные
-        }
+function highlightFeature() {
+    var featureId = randomFeature.properties.id;
+    // Применяем стиль и выводим объект на передний план
+    vectorGridLayer.setFeatureStyle(featureId, {
+        fill: true,
+        weight: 2,
+        color: 'red',
+        fillColor: 'yellow',
+        fillOpacity: 0.7
     });
 
-    // Устанавливаем правильный ответ
-    correctAnswer = correct;
+    // После установки стиля, перемещаем объект на передний план
+    const tileLayer = vectorGridLayer._vectorTiles || {};
+    for (var key in tileLayer) {
+        var tile = tileLayer[key];
+        var features = tile._features;
+        var data = features[featureId];
+        if (data) {
+            var feature = data.feature;
+            if (feature.bringToFront) {
+                feature.bringToFront();
+            }
+        }
+    }
 }
 
+// Функция сброса состояния
+function reset() {
+    if (!randomFeature) return;
 
+    stopTimer();
 
-// Проверка ответа пользователя
+    // Сброс стилей кнопок
+    document.querySelectorAll('.answer-button').forEach(btn => {
+        btn.classList.remove('correct', 'incorrect');
+    });
+    vectorGridLayer.resetFeatureStyle(randomFeature.properties.id);
+}
+
+// Функция генерации вариантов ответа
+function generateAnswers(correct, allOptions) {
+    startTimer();
+
+    const incorrectOptions = allOptions.filter(option => option !== correct);
+    const shuffledIncorrectOptions = incorrectOptions.sort(() => Math.random() - 0.5).slice(0, 3);
+    const answerOptions = [...shuffledIncorrectOptions, correct].sort(() => Math.random() - 0.5);
+
+    const buttons = document.querySelectorAll('.answer-button');
+    answerOptions.forEach((option, index) => {
+        buttons[index].innerText = option;
+        buttons[index].dataset.correct = option === correct ? 'true' : 'false';
+    });
+}
+
+// Проверка ответа
 function checkAnswer(button) {
     stopTimer();
     const isCorrect = button.dataset.correct === 'true';
@@ -158,19 +150,15 @@ function checkAnswer(button) {
         button.classList.add('incorrect');
         flashBackground(false);
     }
-    // Обновляем счётчики
-    updateScore(isCorrect);
-    //убираем подстветку
-    geoJsonLayer.resetStyle(randomFeature);
 
-    // Очищаем состояние кнопок и выбираем новый вопрос
+    updateScore(isCorrect);
+
     setTimeout(() => {
         document.querySelectorAll('.answer-button').forEach(btn => {
             btn.classList.remove('correct', 'incorrect');
         });
         chooseRandomFeature();
     }, 500);
-
 }
 
 // Функция обновления счётчиков
@@ -220,7 +208,7 @@ function startTimer() {
             flashBackground(false)
             updateScore(false);
             //убираем подстветку
-            geoJsonLayer.resetStyle(randomFeature);
+            //geoJsonLayer.resetStyle(randomFeature);
             // Очищаем состояние кнопок и выбираем новый вопрос
             document.querySelectorAll('.answer-button').forEach(btn => {
                  btn.classList.remove('correct', 'incorrect');
