@@ -179,10 +179,37 @@ footer {
     border-radius: 10px;
 }
 
+#start-game {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #4caf50; /* Зелёный фон */
+    color: white; /* Белый текст */
+    font-size: 24px; /* Увеличенный текст */
+    padding: 15px 30px; /* Отступы внутри кнопки */
+    border: none; /* Убираем границу */
+    border-radius: 10px; /* Закруглённые края */
+    cursor: pointer; /* Курсор при наведении */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Тень кнопки */
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    z-index: 999;
+}
+
+#start-game:hover {
+    background-color: #45a049; /* Тёмно-зелёный при наведении */
+    transform: translateX(-50%) scale(1.1); /* Увеличение кнопки */
+}
+
+#start-game:active {
+    background-color: #388e3c; /* Ещё темнее при клике */
+    transform: translateX(-50%) scale(1.05); /* Уменьшение эффекта увеличения */
+}
+
+
 /* Стили для кнопок */
 .answer-button {
-    width: 100%; /* Кнопки занимают всю ширину ячейки */
-    max-width: 200px; /* Ограничиваем ширину кнопок */
+    width: 200px; /* Кнопки занимают всю ширину ячейки */
     height: 50px; /* Фиксированная высота */
     padding: 10px;
     font-size: 16px;
@@ -266,4 +293,45 @@ footer {
 /* Стили для иконок */
 .score-icon {
     font-size: 20px; /* Размер иконки */
+}
+
+.result-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    text-align: center;
+}
+
+.result-overlay h1 {
+    font-size: 36px;
+    margin-bottom: 20px;
+}
+
+.result-overlay p {
+    font-size: 18px;
+    margin: 5px 0;
+}
+
+.result-overlay button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 18px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.result-overlay button:hover {
+    background-color: #45a049;
 }

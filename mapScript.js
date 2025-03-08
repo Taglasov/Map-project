@@ -14,6 +14,11 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let vectorGridLayer;
 let randomFeature;
 let geoJsonData;
+let regionQueue = []; // Очередь регионов
+let regionStatus = []; // Хранит информацию о правильности ответа для каждого региона
+let id_region = 0;
+let flagend = true;
+
 // Загрузка GeoJSON
 fetch('irk.json') // Укажите путь к вашему GeoJSON-файлу
     .then(response => response.json())
@@ -27,13 +32,13 @@ fetch('irk.json') // Укажите путь к вашему GeoJSON-файлу
         vectorGridLayer = L.vectorGrid.slicer(geoJsonData, {
             rendererFactory: L.canvas.tile, // Используем Canvas для рендеринга
             vectorTileLayerStyles : {
-                sliced: {
+                sliced: (properties, zoom) => ({
                     color: 'white',
-                    weight: 1,
+                    weight: 2,
                     fill: true,
-                    fillColor: 'blue',
-                    fillOpacity: 0.5,
-                },
+                    fillColor: '#0594fa',
+                    fillOpacity: 0.7,
+                }),
             },
             getFeatureId: function(f) {
                 return f.properties.id;
@@ -46,6 +51,7 @@ fetch('irk.json') // Укажите путь к вашему GeoJSON-файлу
             highlightFeature();
         });
 
+
         const bounds = [
             [40, 70], // Юго-западная точка
             [70, 150] // Северо-восточная точка
@@ -56,59 +62,86 @@ fetch('irk.json') // Укажите путь к вашему GeoJSON-файлу
         map.setMinZoom(5); // Минимальный зум
         map.setMaxZoom(7); // Максимальный зум
 
-        chooseRandomFeature();
     });
+
+function startGame(){
+    // Создаём очередь регионов
+    regionQueue = generateRegionQueue(geoJsonData.features);
+    toggleButtons(true);
+    flagend = false;
+    score.correct = 0;
+    score.incorrect = 0;
+    document.getElementById('correct-score').innerText = score.correct;
+    document.getElementById('incorrect-score').innerText = score.incorrect;
+
+    // Сбрасываем стили всех регионов
+    geoJsonData.features.forEach((feature) => {
+        vectorGridLayer.resetFeatureStyle(feature.properties.id);
+    });
+
+    // Скрываем кнопку "Начать" и показываем варианты
+    toggleStartButton(false);
+    toggleAnswerButtons(true);
+
+    chooseNextFeature();
+}
+
+// Генерация случайной очереди
+function generateRegionQueue(features) {
+    const indices = [...Array(features.length).keys()]; // Индексы всех регионов
+    id_region = 0;
+    regionStatus = [...Array(features.length)];
+    for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]]; // Перемешиваем индексы
+    }
+    return indices;
+}
+
 // Функция выбора случайного элемента
-function chooseRandomFeature() {
-    if (!vectorGridLayer) return;
-    reset();
+function chooseNextFeature() {
+    if (id_region === regionQueue.length) {
+        endGame(); // Завершаем игру, если очередь пуста
+        return;
+    }
+
+    reset(); // Сбрасываем состояние предыдущего выбора
     // Список всех доступных объектов
-    const allFeatures = geoJsonData.features;
+    const nextIndex = regionQueue[id_region++]; // берем первый элемент из очереди
+    randomFeature = geoJsonData.features[nextIndex]; // Получаем соответствующий регион
 
-    const randomIndex = Math.floor(Math.random() * allFeatures.length);
-    randomFeature = allFeatures[randomIndex];
-
-    const allOptions = allFeatures.map(f => f.properties.district);
+    const allOptions = geoJsonData.features.map(f => f.properties.district);
     const correctDistrict = randomFeature.properties.district;
 
     highlightFeature();
-
-    // Плавное приближение карты к границам выбранного элемента
-    const bounds = L.latLngBounds(randomFeature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]));
+    // Центрируем карту на выбранный объект
+    const bounds = L.latLngBounds(
+        randomFeature.geometry.coordinates[0].map(([lng, lat]) => [lat, lng])
+    );
     map.flyToBounds(bounds, {
         maxZoom: 6,
-        duration: 0.9
+        duration: 0.9,
     });
-
     // Генерация кнопок с ответами
     generateAnswers(correctDistrict, allOptions);
 }
 
 function highlightFeature() {
-    var featureId = randomFeature.properties.id;
-    // Применяем стиль и выводим объект на передний план
+    if(flagend)
+        return;
+    const featureId = randomFeature.properties.id;
+
+    // Установка стиля для выбранного объекта
     vectorGridLayer.setFeatureStyle(featureId, {
         fill: true,
         weight: 2,
         color: 'red',
         fillColor: 'yellow',
-        fillOpacity: 0.7
+        fillOpacity: 0.7,
     });
 
-    // После установки стиля, перемещаем объект на передний план
-    const tileLayer = vectorGridLayer._vectorTiles || {};
-    for (var key in tileLayer) {
-        var tile = tileLayer[key];
-        var features = tile._features;
-        var data = features[featureId];
-        if (data) {
-            var feature = data.feature;
-            if (feature.bringToFront) {
-                feature.bringToFront();
-            }
-        }
-    }
 }
+
 
 // Функция сброса состояния
 function reset() {
@@ -138,40 +171,55 @@ function generateAnswers(correct, allOptions) {
     });
 }
 
+function toggleButtons(state) {
+    const buttons = document.querySelectorAll('.answer-button');
+    buttons.forEach((button) => {
+        button.disabled = !state; // Блокируем/разблокируем кнопки
+    });
+}
+
 // Проверка ответа
 function checkAnswer(button) {
     stopTimer();
-    const isCorrect = button.dataset.correct === 'true';
 
-    if (isCorrect) {
-        button.classList.add('correct');
-        flashBackground(true);
-    } else {
-        button.classList.add('incorrect');
-        flashBackground(false);
+    toggleButtons(false); // Включаем кнопки
+
+    const isCorrect = button && button.dataset.correct === 'true';
+    if (button != false) {
+        if (isCorrect) {
+            button.classList.add('correct');
+        } else {
+            button.classList.add('incorrect');
+        }
     }
 
+    flashBackground(isCorrect);
+    regionStatus[randomFeature.properties.id] = isCorrect; // Правильный ответ
     updateScore(isCorrect);
 
     setTimeout(() => {
+        toggleButtons(true); // Включаем кнопки
         document.querySelectorAll('.answer-button').forEach(btn => {
             btn.classList.remove('correct', 'incorrect');
         });
-        chooseRandomFeature();
-    }, 500);
+        chooseNextFeature();
+    }, 100);
 }
 
 // Функция обновления счётчиков
-let correctScore = 0;
-let incorrectScore = 0;
+// Пример начального значения очков
+let score = {
+    correct: 0,
+    incorrect: 0,
+};
 
 function updateScore(isCorrect) {
     if (isCorrect) {
-        correctScore++;
-        document.getElementById('correct-score').innerText = correctScore;
+        score.correct++;
+        document.getElementById('correct-score').innerText = score.correct;
     } else {
-        incorrectScore++;
-        document.getElementById('incorrect-score').innerText = incorrectScore;
+        score.incorrect++;
+        document.getElementById('incorrect-score').innerText = score.incorrect;
     }
 }
 
@@ -204,22 +252,112 @@ function startTimer() {
         // Если время истекло, сбрасываем таймер
         if (currentWidth <= 0) {
             stopTimer();
-            //alert('Время вышло!');
             flashBackground(false)
-            updateScore(false);
-            //убираем подстветку
-            //geoJsonLayer.resetStyle(randomFeature);
-            // Очищаем состояние кнопок и выбираем новый вопрос
-            document.querySelectorAll('.answer-button').forEach(btn => {
-                 btn.classList.remove('correct', 'incorrect');
-            });
-            chooseRandomFeature();
+            checkAnswer(false);
         }
     }, updateInterval); // Обновление каждые 100 миллисекунд
 }
 
 function stopTimer() {
     clearInterval(timerInterval); // Останавливаем таймер
+}
+
+function endGame() {
+    stopTimer();
+    flagend = true;
+    toggleButtons(false);
+    map.flyTo([58.2, 107.0], 5, {
+        duration: 1.5, // Продолжительность анимации в секундах
+    });
+    // Окрашиваем регионы на основе статуса
+    Object.keys(regionStatus).forEach((id) => {
+        const isCorrect = regionStatus[regionQueue[id]];
+        vectorGridLayer.setFeatureStyle(regionQueue[id], {
+            fill: true,
+            weight: 2,
+            color: 'white',
+            fillColor: isCorrect ? 'green' : 'red', // Зелёный для правильного, красный для неправильного
+            fillOpacity: 0.7,
+        });
+    });
+    let tooltips = {}; // Хранит tooltip для каждого региона
+    vectorGridLayer.on('mouseover', (event) => {
+        if(!flagend) return;
+        const properties = event.layer.properties;
+        if (properties && properties.district) {
+            const tooltip = L.tooltip({
+                direction: 'top',
+                permanent: false,
+                opacity: 0.7,
+            })
+                .setLatLng(event.latlng)
+                .setContent(`<strong>${properties.district}</strong>`);
+            map.openTooltip(tooltip);
+
+            // Сохраняем tooltip в объекте
+            tooltips[properties.id] = tooltip;
+
+            vectorGridLayer.setFeatureStyle(properties.id, {
+                fill: true,
+                weight: 4,
+                color: 'white',
+                fillColor: regionStatus[properties.id] ? 'green' : 'red', // Зелёный для правильного, красный для неправильного
+                fillOpacity: 1,
+            });
+        }
+    });
+
+    vectorGridLayer.on('mouseout', (event) => {
+        if(!flagend) return;
+        const properties = event.layer.properties;
+        if (properties && tooltips[properties.id]) {
+            map.closeTooltip(tooltips[properties.id]); // Закрываем tooltip
+            delete tooltips[properties.id]; // Удаляем из объекта
+        }
+
+        vectorGridLayer.setFeatureStyle(properties.id, {
+            fill: true,
+            weight: 2,
+            color: 'white',
+            fillColor: regionStatus[properties.id] ? 'green' : 'red', // Зелёный для правильного, красный для неправильного
+            fillOpacity: 0.7,
+        });
+    });
+
+    map.on('zoomstart', () => {
+        if(!flagend) return;
+        Object.values(tooltips).forEach((tooltip) => {
+            map.closeTooltip(tooltip); // Закрываем tooltip
+        });
+        tooltips = {}; // Очищаем объект
+    });
+
+    // Показываем итоговый результат
+    const resultContainer = document.createElement('div');
+    resultContainer.classList.add('result-overlay');
+    resultContainer.innerHTML = `
+        <h1>Игра завершена!</h1>
+        <p>Правильные ответы: ${score.correct}</p>
+        <p>Неправильные ответы: ${score.incorrect}</p>
+        <button id="close-result">Закрыть</button>
+    `;
+    document.body.appendChild(resultContainer);
+    document.getElementById('close-result').addEventListener('click', () => {
+        document.querySelector('.result-overlay').remove(); // Убираем результат
+    });
+
+    // Скрываем кнопки с вариантами
+    toggleAnswerButtons(false);
+
+    // Показываем кнопку "Начать"
+    toggleStartButton(true);
+
+    // Обновляем текст кнопки "Начать" для нового раунда
+    const startButton = document.getElementById('start-game');
+    startButton.innerText = 'Играть заново';
+
+    // Сбрасываем состояние игры
+    startButton.addEventListener('click', startGame);
 }
 
 
@@ -246,3 +384,77 @@ function flashBackground(isCorrect) {
         flashContainer.remove();
     }, 2000);
 }
+
+const API_URL = 'http://localhost:4000';
+
+
+// Получение топ-10 игроков
+async function fetchLeaderboard() {
+    try {
+        const response = await fetch(`${API_URL}/leaderboard`);
+        const leaderboard = await response.json();
+        const scoreBoard = document.getElementById('score-board');
+        scoreBoard.innerHTML = '<h3>Топ-10 игроков:</h3>';
+        leaderboard.forEach((player, index) => {
+            scoreBoard.innerHTML += `<div>${index + 1}. ${player.name}: ${player.score}</div>`;
+        });
+    } catch (error) {
+        console.error('Ошибка при получении рейтинга:', error);
+    }
+}
+
+// Функция для сохранения результата
+async function saveResult() {
+    const username = document.getElementById('username').value;
+    if (!username) {
+        alert('Введите ваше имя перед сохранением результата!');
+        return;
+    }
+
+    const totalScore = score.correct - score.incorrect; // Пример расчёта общего результата
+
+    try {
+        const response = await fetch(API_URL+'/leaderboard', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: username,
+                score: totalScore,
+            }),
+        });
+
+        if (response.ok) {
+            alert('Результат успешно сохранён!');
+        } else {
+            alert('Ошибка при сохранении результата.');
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения результата:', error);
+        alert('Не удалось сохранить результат.');
+    }
+}
+
+// Привязка обработчика к кнопке "Сохранить результат"
+document.getElementById('save-result').addEventListener('click', saveResult);
+
+
+function toggleStartButton(show) {
+    const startButton = document.getElementById('start-game');
+    startButton.style.visibility = show ? 'visible ' : 'hidden';
+}
+
+function toggleAnswerButtons(show) {
+    const answersContainer = document.getElementById('answer-container');
+    answersContainer.style.visibility = show ? 'visible' : 'hidden';
+}
+
+document.getElementById('start-game').addEventListener('click', () => {
+    toggleStartButton(false); // Скрываем кнопку "Начать"
+    toggleAnswerButtons(true); // Показываем кнопки с вариантами
+    startGame(); // Начинаем игру
+});
+
+// Загрузка рейтинга при старте
+fetchLeaderboard();

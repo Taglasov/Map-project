@@ -10,6 +10,13 @@
 </head>
 <body>
 
+<div id="game-container">
+    <input id="username" type="text" placeholder="Введите ваше имя" />
+    <button id="save-result">Сохранить результат</button>
+    <div id="score-board"></div>
+</div>
+
+
 <div id="map-wrapper">
     <div id="map">
         <div id="score-container">
@@ -22,13 +29,14 @@
                 <span id="incorrect-score">0</span>
             </div>
         </div>
-        <div id="answer-container">
-            <!-- Кнопки с вариантами ответов -->
+        <button id="start-game" style="visibility: visible;">Начать</button>
+        <div id="answer-container" style="visibility: hidden;">
             <button class="answer-button" onclick="checkAnswer(this)">Вариант 1</button>
             <button class="answer-button" onclick="checkAnswer(this)">Вариант 2</button>
             <button class="answer-button" onclick="checkAnswer(this)">Вариант 3</button>
             <button class="answer-button" onclick="checkAnswer(this)">Вариант 4</button>
         </div>
+
         <div id="timer-container">
             <div id="timer-bar"></div>
         </div>
