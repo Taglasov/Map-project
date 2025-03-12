@@ -10,24 +10,20 @@
 </head>
 <body>
 
-<div id="game-container">
-    <input id="username" type="text" placeholder="Введите ваше имя" />
-    <button id="save-result">Сохранить результат</button>
-    <div id="score-board"></div>
-</div>
-
-
 <div id="map-wrapper">
     <div id="map">
         <div id="score-container">
             <div class="score correct">
-                <span class="score-icon">✔️</span>
-                <span id="correct-score">0</span>
+                Верно:
+                <span id="score-correct">0</span>
             </div>
-            <div class="score incorrect">
-                <span class="score-icon">❌</span>
-                <span id="incorrect-score">0</span>
+            <div class="score count">
+                Вопрос:
+                <span id="score-count">0</span>/<span id="score-size">0</span>
             </div>
+        </div>
+        <div id="scoreTime">
+            Очки: <span id="score-time">0</span>
         </div>
         <button id="start-game" style="visibility: visible;">Начать</button>
         <div id="answer-container" style="visibility: hidden;">

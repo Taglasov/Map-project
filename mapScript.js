@@ -61,18 +61,21 @@ fetch('irk.json') // Укажите путь к вашему GeoJSON-файлу
         //map.fitBounds(bounds);
         map.setMinZoom(5); // Минимальный зум
         map.setMaxZoom(7); // Максимальный зум
-
+        //endGame();
     });
 
 function startGame(){
     // Создаём очередь регионов
     regionQueue = generateRegionQueue(geoJsonData.features);
+    document.getElementById('score-size').innerText = regionQueue.length;
     toggleButtons(true);
     flagend = false;
     score.correct = 0;
-    score.incorrect = 0;
-    document.getElementById('correct-score').innerText = score.correct;
-    document.getElementById('incorrect-score').innerText = score.incorrect;
+    score.count = 0;
+    score.time = 0;
+    document.getElementById('score-correct').innerText = score.correct;
+    document.getElementById('score-count').innerText = score.count;
+    document.getElementById('score-time').innerText = score.time;
 
     // Сбрасываем стили всех регионов
     geoJsonData.features.forEach((feature) => {
@@ -106,6 +109,8 @@ function chooseNextFeature() {
     }
 
     reset(); // Сбрасываем состояние предыдущего выбора
+    score.count++;
+    document.getElementById('score-count').innerText = score.count;
     // Список всех доступных объектов
     const nextIndex = regionQueue[id_region++]; // берем первый элемент из очереди
     randomFeature = geoJsonData.features[nextIndex]; // Получаем соответствующий регион
@@ -114,14 +119,7 @@ function chooseNextFeature() {
     const correctDistrict = randomFeature.properties.district;
 
     highlightFeature();
-    // Центрируем карту на выбранный объект
-    const bounds = L.latLngBounds(
-        randomFeature.geometry.coordinates[0].map(([lng, lat]) => [lat, lng])
-    );
-    map.flyToBounds(bounds, {
-        maxZoom: 6,
-        duration: 0.9,
-    });
+
     // Генерация кнопок с ответами
     generateAnswers(correctDistrict, allOptions);
 }
@@ -130,7 +128,14 @@ function highlightFeature() {
     if(flagend)
         return;
     const featureId = randomFeature.properties.id;
-
+    // Центрируем карту на выбранный объект
+    const bounds = L.latLngBounds(
+        randomFeature.geometry.coordinates[0].map(([lng, lat]) => [lat, lng])
+    );
+    map.flyToBounds(bounds, {
+        maxZoom: 5.6,
+        duration: 0.5,
+    });
     // Установка стиля для выбранного объекта
     vectorGridLayer.setFeatureStyle(featureId, {
         fill: true,
@@ -210,16 +215,17 @@ function checkAnswer(button) {
 // Пример начального значения очков
 let score = {
     correct: 0,
-    incorrect: 0,
+    count: 0,
+    time: 0,
 };
 
 function updateScore(isCorrect) {
     if (isCorrect) {
         score.correct++;
-        document.getElementById('correct-score').innerText = score.correct;
-    } else {
-        score.incorrect++;
-        document.getElementById('incorrect-score').innerText = score.incorrect;
+        document.getElementById('score-correct').innerText = score.correct;
+        score.time += remainingTime;
+        score.time = Math.round(score.time*100)/100;
+        document.getElementById('score-time').innerText = score.time;
     }
 }
 
@@ -227,6 +233,7 @@ function updateScore(isCorrect) {
 let timerDuration = 8; // Время на ответ в секундах
 let warningThreshold = 2; // Сколько секунд до конца таймера, чтобы сменить цвет
 let timerInterval; // Хранит интервал таймера
+let remainingTime; //текущее время
 
 function startTimer() {
     // Сбрасываем ширину полоски до 100%
@@ -238,7 +245,7 @@ function startTimer() {
     const updateInterval = 5; // Обновление каждые 50 мс (20 раз в секунду)
     const step = 100 / (timerDuration * (1000 / updateInterval)); // Шаг изменения ширины
     let currentWidth = 100; // Начальная ширина в процентах
-    let remainingTime = timerDuration; // Оставшееся время в секундах
+    remainingTime = timerDuration; // Оставшееся время в секундах
 
     timerInterval = setInterval(() => {
         currentWidth -= step;
@@ -287,6 +294,7 @@ function endGame() {
         if (properties && properties.district) {
             const tooltip = L.tooltip({
                 direction: 'top',
+                offset: [0, -30],
                 permanent: false,
                 opacity: 0.7,
             })
@@ -324,12 +332,45 @@ function endGame() {
         });
     });
 
-    map.on('zoomstart', () => {
+    map.on('moveend', () => {
         if(!flagend) return;
-        Object.values(tooltips).forEach((tooltip) => {
-            map.closeTooltip(tooltip); // Закрываем tooltip
+        Object.keys(tooltips).forEach((id) => {
+            map.closeTooltip(tooltips[id]); // Закрываем tooltip
+            vectorGridLayer.setFeatureStyle(id, {
+                fill: true,
+                weight: 2,
+                color: 'white',
+                fillColor: regionStatus[id] ? 'green' : 'red', // Зелёный для правильного, красный для неправильного
+                fillOpacity: 0.7,
+            });
         });
         tooltips = {}; // Очищаем объект
+    });
+
+    // Зумирование на регион по клику
+    vectorGridLayer.on('click', (event) => {
+        if (!flagend) return;
+
+        const properties = event.layer.properties;
+        if (properties && properties.id) {
+            // Определяем границы выбранного региона
+            const bounds = L.latLngBounds(
+                geoJsonData.features[properties.id].geometry.coordinates[0].map(([lng, lat]) => [lat, lng])
+            );
+
+            // Плавное зумирование к выбранному региону
+            map.flyToBounds(bounds, {
+                maxZoom: 6, // Максимальный зум
+                duration: 0.5, // Продолжительность анимации
+            });
+            vectorGridLayer.setFeatureStyle(properties.id, {
+                fill: true,
+                weight: 4,
+                color: 'white',
+                fillColor: regionStatus[properties.id] ? 'green' : 'red', // Зелёный для правильного, красный для неправильного
+                fillOpacity: 1,
+            });
+        }
     });
 
     // Показываем итоговый результат
@@ -338,7 +379,7 @@ function endGame() {
     resultContainer.innerHTML = `
         <h1>Игра завершена!</h1>
         <p>Правильные ответы: ${score.correct}</p>
-        <p>Неправильные ответы: ${score.incorrect}</p>
+        <p>Очки: ${score.time}</p>
         <button id="close-result">Закрыть</button>
     `;
     document.body.appendChild(resultContainer);
@@ -382,7 +423,7 @@ function flashBackground(isCorrect) {
     // Удаляем контейнер после завершения анимации (1 секунда)
     setTimeout(() => {
         flashContainer.remove();
-    }, 2000);
+    }, 1000);
 }
 
 const API_URL = 'http://localhost:4000';
@@ -437,7 +478,7 @@ async function saveResult() {
 }
 
 // Привязка обработчика к кнопке "Сохранить результат"
-document.getElementById('save-result').addEventListener('click', saveResult);
+//document.getElementById('save-result').addEventListener('click', saveResult);
 
 
 function toggleStartButton(show) {
